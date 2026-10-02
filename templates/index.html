@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flask Hello World 一頁式網站</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <!-- 頂部導航列 -->
+  <header>
+    <div class="nav-container">
+      <a href="#" class="logo">
+        <span>⚡</span> Flask World
+      </a>
+      <ul class="nav-links">
+        <li><a href="#home">首頁</a></li>
+        <li><a href="#features">特色</a></li>
+        <li><a href="#demo">互動體驗</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- 主視覺區 Hero Section -->
+  <main>
+    <section id="home" class="hero container">
+      <span class="badge">🚀 Python Flask 網站框架實作</span>
+      <h1>Hello, World!</h1>
+      <p>歡迎來到這座現代化、輕量且充滿活力的一頁式網站。本頁面由 Python Flask 驅動，結合動態渲染與非同步 API 交互。</p>
+      <div class="hero-buttons">
+        <a href="#demo" class="btn btn-primary">立即互動測試</a>
+        <a href="#features" class="btn btn-secondary">瀏覽網站特色</a>
+      </div>
+    </section>
+
+    <!-- 特色介紹區 -->
+    <section id="features" class="section container">
+      <h2 class="section-title">核心特色</h2>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <h3>輕量簡潔</h3>
+          <p>Flask 擁有微框架（Micro-framework）的極致輕量特性，核心單純無負擔，適合快速建構各類 Web 專案。</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🎨</div>
+          <h3>Jinja2 模板</h3>
+          <p>強大的模板引擎，讓前後端資料整合變得無比流暢，輕鬆呈現動態內容與精緻使用者介面。</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔗</div>
+          <h3>RESTful API 支援</h3>
+          <p>內建完備的 JSON 序列化工具與路由控制，可無縫兼顧單頁應用（SPA）與前後端分離架構。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 即時互動區 -->
+    <section id="demo" class="interactive-section">
+      <div class="container">
+        <h2 class="section-title">即時互動體驗</h2>
+        <div class="demo-box">
+          <p style="margin-bottom: 1.2rem; color: var(--text-muted); text-align: center;">
+            輸入您的名字，體驗前端與 Flask 後端 API 的非同步即時通訊：
+          </p>
+
+          <form id="greetForm" class="form-group" onsubmit="handleGreet(event)">
+            <input 
+              type="text" 
+              id="visitorName" 
+              class="form-input" 
+              placeholder="請輸入您的名字 (例如: Alex)" 
+              autocomplete="off"
+            />
+            <button type="submit" class="btn btn-primary">發送問候</button>
+          </form>
+
+          <div class="result-card" id="resultCard">
+            <div class="result-message" id="resultMessage">
+              點擊「發送問候」以接收來自 Flask 後端的 Hello World！
+            </div>
+            <div class="result-meta" id="resultMeta">狀態: 待命發送</div>
+          </div>
+
+          <!-- 伺服器狀態展示 (透過 Jinja2 渲染) -->
+          <div class="status-panel">
+            <div class="status-item">
+              <div class="status-label">Python 版本</div>
+              <div class="status-value">{{ info.python_version }}</div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">Flask 版本</div>
+              <div class="status-value">{{ info.flask_version }}</div>
+            </div>
+            <div class="status-item">
+              <div class="status-label">伺服器啟動時間</div>
+              <div class="status-value">{{ info.current_time }}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 頁尾 -->
+  <footer>
+    <div class="container">
+      <p>© 2026 Python Flask Hello World 一頁式網站 · 現代化 Web 開發實作</p>
+    </div>
+  </footer>
+
+  <!-- 前端互動腳本 -->
+  <script>
+    async function handleGreet(event) {
+      event.preventDefault();
+      const input = document.getElementById('visitorName');
+      const name = input.value.trim();
+      const messageElem = document.getElementById('resultMessage');
+      const metaElem = document.getElementById('resultMeta');
+
+      messageElem.textContent = '後端正在處理中...';
+      metaElem.textContent = '狀態: 傳輸中';
+
+      try {
+        const response = await fetch('/api/hello', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: name })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+          messageElem.textContent = data.message;
+          metaElem.textContent = `後端回應時間: ${data.timestamp} · 狀態碼: 200 OK`;
+        } else {
+          messageElem.textContent = '收到非預期的回應。';
+        }
+      } catch (err) {
+        messageElem.textContent = '連線失敗，請檢查 Flask 伺服器是否正常運行。';
+        metaElem.textContent = '狀態: 連線錯誤';
+      }
+    }
+  </script>
+</body>
+</html>
