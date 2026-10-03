@@ -21,9 +21,9 @@ def api_hello():
     visitor_name = data.get('name', '').strip()
     
     if not visitor_name:
-        greeting = "Hello, World! 歡迎探索 Flask 的精彩世界！(freda1)"
+        greeting = "Hello, World! 歡迎探索 Flask 的精彩世界！(freda3)"
     else:
-        greeting = f"Hello, {visitor_name}! 很高興認識你，祝你有美好的一天！(freda2)"
+        greeting = f"Hello, {visitor_name}! 很高興認識你，祝你有美好的一天！(freda3)"
     
     return jsonify({
         'status': 'success',
