@@ -1,5 +1,7 @@
 # Flask Hello World 一頁式網站
 
+[![CI/CD Pipeline](https://github.com/fredatoeic-alt/Test0929/actions/workflows/deploy.yml/badge.svg)](https://github.com/fredatoeic-alt/Test0929/actions/workflows/deploy.yml)
+
 這是一個基於 **Python Flask** 網站微框架所打造的現代化「Hello World」一頁式網站（Single-Page Website）。
 
 ---
