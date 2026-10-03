@@ -5,7 +5,10 @@ echo  啟動 Python Flask Hello World 一頁式網站
 echo ========================================================
 echo.
 
-if exist "C:\Users\freej\anaconda3\python.exe" (
+if exist "venv\Scripts\python.exe" (
+    echo [資訊] 使用 venv 虛擬環境執行...
+    "venv\Scripts\python.exe" app.py
+) else if exist "C:\Users\freej\anaconda3\python.exe" (
     echo [資訊] 使用 Anaconda Python 執行...
     "C:\Users\freej\anaconda3\python.exe" app.py
 ) else (

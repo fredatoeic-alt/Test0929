@@ -9,12 +9,16 @@
 ```text
 Test0929/
 ├── app.py              # Flask 後端主程式（包含首頁路由與互動 API）
+├── test_app.py         # Pytest 單元測試腳本
 ├── templates/
 │   └── index.html      # 一頁式網站前端 HTML 模板（支援 Jinja2 動態渲染）
 ├── static/
 │   └── style.css       # 現代化深色漸層響應式 CSS 樣式
-├── requirements.txt    # Python 相依套件清單
-├── run.bat             # Windows 專用一鍵啟動腳本
+├── .github/workflows/
+│   └── deploy.yml      # GitHub Actions CI/CD Pipeline
+├── render.yaml         # Render Blueprint 部署配置
+├── requirements.txt    # Python 相依套件清單 (Flask, Gunicorn)
+├── run.bat             # Windows 專用一鍵啟動腳本 (支援 venv)
 └── README.md           # 專案說明文件
 ```
 
@@ -52,3 +56,33 @@ python app.py
 ### 開啟網站
 伺服器啟動成功後，請開啟瀏覽器瀏覽：
 👉 **http://127.0.0.1:5000**
+
+---
+
+## 🚀 CI/CD 與 Render 自動部署設定
+
+本專案配置了完整的 GitHub Actions CI/CD 流水線：
+
+1. **CI（持續整合）**：
+   - 每次推送到 `main` 分支或發起 Pull Request 時，自動於 Ubuntu 環境安裝依賴並透過 `pytest test_app.py` 執行自動化測試。
+2. **CD（持續部署至 Render）**：
+   - 當測試全部通過後，自動透過 Render Deploy Hook 觸發線上即時部署。
+
+### ⚙️ 設定步驟
+
+1. **在 Render 上建立 Web Service**：
+   - 登入 [Render](https://render.com/)，點擊 **New +** -> **Web Service**（或 **Blueprint** 並選擇此倉庫）。
+   - Runtime: `Python`
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `gunicorn app:app`
+2. **取得 Deploy Hook URL**：
+   - 進入 Render 建立的 Web Service 頁面 -> **Settings**。
+   - 找到 **Deploy Hook** 區塊，複製 Webhook URL（格式類似 `https://api.render.com/deploy/srv-xxxxxx?key=yyyyyy`）。
+3. **在 GitHub 倉庫設定 Secret**：
+   - 前往 GitHub 倉庫 -> **Settings** -> **Secrets and variables** -> **Actions**。
+   - 點擊 **New repository secret**：
+     - **Name**：`RENDER_DEPLOY_HOOK_URL`
+     - **Secret**：貼上剛才從 Render 複製的 Deploy Hook URL。
+4. **完成**：
+   - 未來只要執行 `git push origin main`，GitHub Actions 就會自動跑測試並在通過後觸發 Render 部署上線！
+
