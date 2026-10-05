@@ -21,7 +21,7 @@ def api_hello():
     visitor_name = data.get('name', '').strip()
     
     if not visitor_name:
-        greeting = "Hello, World! 歡迎探索 Flask 的精彩世界！(freda5)"
+        greeting = "Hello, World! 歡迎探索 Flask 的精彩世界！(freda１)"
     else:
         greeting = f"Hello, {visitor_name}! 很高興認識你，祝你有美好的一天！(freda5)"
     
