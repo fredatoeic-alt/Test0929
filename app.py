@@ -5,6 +5,7 @@ import sqlite3
 import os
 import sys
 import base64
+import re
 from io import BytesIO
 from datetime import date
 from functools import wraps
@@ -13,6 +14,7 @@ from flask import (
     Flask, render_template, request, redirect,
     url_for, flash, session, g, jsonify
 )
+from werkzeug.security import generate_password_hash, check_password_hash
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -28,10 +30,9 @@ if not os.path.exists(DATABASE):
     except Exception as e:
         print(f"[WARNING] 無法自動初始化資料庫: {e}")
 
-# 管理員帳密
+# 管理員帳密雜湊 (對應密碼之安全雜湊，明碼絕不儲存或顯示)
 ADMIN_USER = 'admin'
-ADMIN_PASS = 'admin123'
-
+ADMIN_PASS_HASH = 'scrypt:32768:8:1$iZcePM2fA90WomFl$93315a40fc7657acae56e8e27b55457e20fb8e91115abaa2dd2f5a3c12cd5d22b08c8b86b938a28517e2ac7e0ba54f5a2382c797aa4b96c173b013c3b40ee768'
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -54,14 +55,14 @@ def close_db(exception):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  登入驗證裝飾器
+#  登入與權限裝飾器
 # ═══════════════════════════════════════════════════════════════
 
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get('logged_in'):
-            flash('請先登入系統', 'warning')
+        if not session.get('logged_in') or session.get('role') != 'admin':
+            flash('請先以管理員身分登入系統', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
@@ -92,14 +93,15 @@ def generate_qr(data):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if session.get('logged_in'):
+    if session.get('logged_in') and session.get('role') == 'admin':
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
         username = request.form.get('username', '')
         password = request.form.get('password', '')
-        if username == ADMIN_USER and password == ADMIN_PASS:
+        if username == ADMIN_USER and check_password_hash(ADMIN_PASS_HASH, password):
             session['logged_in'] = True
             session['username'] = username
+            session['role'] = 'admin'
             flash('登入成功！歡迎回來', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -126,7 +128,7 @@ def dashboard():
         'customers': db.execute('SELECT COUNT(*) FROM customer').fetchone()[0],
         'products':  db.execute('SELECT COUNT(*) FROM product').fetchone()[0],
         'orders':    db.execute('SELECT COUNT(*) FROM orders').fetchone()[0],
-        'pending':   db.execute("SELECT COUNT(*) FROM orders WHERE 狀態='處理中'").fetchone()[0],
+        'pending':   db.execute('SELECT COUNT(*) FROM orders WHERE 狀態=?', ('處理中',)).fetchone()[0],
     }
     recent_orders = db.execute('''
         SELECT o.*, c.名稱 AS 客戶名稱,
@@ -296,36 +298,73 @@ def order_add():
 
     if request.method == 'POST':
         try:
-            order_id     = request.form['order_id']
-            customer_id  = request.form['customer_id']
-            order_date   = request.form['order_date']
-            sales_person = request.form['sales_person']
+            order_id     = request.form.get('order_id', '').strip()
+            customer_id  = request.form.get('customer_id', '').strip()
+            order_date   = request.form.get('order_date', '').strip()
+            sales_person = request.form.get('sales_person', '').strip()
             product_ids  = request.form.getlist('product_ids')
+            quantities   = request.form.getlist('quantities')
+
+            # 驗證訂單編號 (格式: SO+數字)
+            if not re.match(r'^SO\d+$', order_id):
+                flash('訂單編號格式不正確，必須為 SO 開頭加上數字 (例如 SO001)', 'danger')
+                raise ValueError('Invalid order ID format')
+
+            if not customer_id:
+                flash('請選擇客戶', 'warning')
+                raise ValueError('No customer selected')
 
             if not product_ids:
                 flash('請至少選擇一項商品', 'warning')
                 raise ValueError('No products selected')
+
+            # 後端二次校驗數量必須為正整數
+            items_to_add = []
+            for pid, qty_str in zip(product_ids, quantities):
+                pid = pid.strip()
+                if not pid:
+                    continue
+                try:
+                    # 確保可轉換為 float 且為沒有小數點的正整數
+                    qty_val = float(qty_str)
+                    if not qty_val.is_integer() or int(qty_val) <= 0:
+                        flash(f'商品數量必須為正整數！輸入值：{qty_str}', 'danger')
+                        raise ValueError('Quantity must be a positive integer')
+                    qty = int(qty_val)
+                except (ValueError, TypeError):
+                    flash('數量必須為正整數（大於 0 的整數）', 'danger')
+                    raise ValueError('Invalid quantity')
+                
+                items_to_add.append((pid, qty))
+
+            if not items_to_add:
+                flash('請至少選擇一項有效商品', 'warning')
+                raise ValueError('No valid items')
 
             # 新增訂單主檔
             db.execute('INSERT INTO orders VALUES (?,?,?,?,?)',
                        (order_id, customer_id, order_date, '處理中', sales_person))
 
             # 新增訂單明細（單價取商品表的當前價格）
-            for pid in product_ids:
-                qty = int(request.form.get(f'qty_{pid}', 0))
-                if qty > 0:
-                    price = db.execute(
-                        'SELECT 單價 FROM product WHERE 商品編號=?', (pid,)
-                    ).fetchone()['單價']
-                    db.execute('INSERT INTO order_item VALUES (?,?,?,?)',
-                               (order_id, pid, qty, price))
+            for pid, qty in items_to_add:
+                price_row = db.execute(
+                    'SELECT 單價 FROM product WHERE 商品編號=?', (pid,)
+                ).fetchone()
+                if not price_row:
+                    raise ValueError(f'找不到商品：{pid}')
+                price = price_row['單價']
+                db.execute('INSERT INTO order_item VALUES (?,?,?,?)',
+                           (order_id, pid, qty, price))
 
             db.commit()
             flash('訂單新增成功', 'success')
             return redirect(url_for('order_detail', order_id=order_id))
 
         except ValueError:
-            pass  # flash already shown
+            db.rollback()
+        except sqlite3.IntegrityError:
+            db.rollback()
+            flash('訂單編號已存在或違反資料庫約束！', 'danger')
         except Exception as e:
             db.rollback()
             flash(f'新增失敗：{e}', 'danger')
@@ -334,9 +373,14 @@ def order_add():
     customers_list = db.execute('SELECT * FROM customer ORDER BY 客戶編號').fetchall()
     products_list  = db.execute('SELECT * FROM product ORDER BY 商品編號').fetchall()
 
-    # 自動產生下一個訂單編號
-    last = db.execute('SELECT 訂單編號 FROM orders ORDER BY 訂單編號 DESC LIMIT 1').fetchone()
-    next_id = f'O{int(last["訂單編號"][1:]) + 1:03d}' if last else 'O001'
+    # 自動產生下一個 SO+數字 的訂單編號
+    last = db.execute('SELECT 訂單編號 FROM orders WHERE 訂單編號 LIKE "SO%" ORDER BY 訂單編號 DESC LIMIT 1').fetchone()
+    if last and last['訂單編號']:
+        num_match = re.search(r'\d+', last['訂單編號'])
+        next_num = int(num_match.group()) + 1 if num_match else 1
+        next_id = f'SO{next_num:03d}'
+    else:
+        next_id = 'SO001'
 
     return render_template('order_form.html',
                            customers=customers_list,

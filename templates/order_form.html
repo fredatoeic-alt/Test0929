@@ -17,12 +17,15 @@
         <div class="row g-3 mb-4">
           <div class="col-md-3">
             <label class="form-label">訂單編號 <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" name="order_id" value="{{ next_id }}" required>
+            <input type="text" class="form-control" name="order_id" id="order_id" 
+                   value="{{ next_id }}" pattern="^SO\d+$" 
+                   title="訂單編號必須為 SO 開頭加數字 (例如 SO001)" required>
+            <div class="form-text text-muted" style="font-size:0.75rem;">格式需求: SO+數字 (例如 SO001)</div>
           </div>
 
           <div class="col-md-4">
             <label class="form-label">選擇客戶 <span class="text-danger">*</span></label>
-            <select name="customer_id" class="form-select" required>
+            <select name="customer_id" id="customer_id" class="form-select" required>
               <option value="" disabled selected>-- 請選擇客戶 --</option>
               {% for c in customers %}
               <option value="{{ c['客戶編號'] }}">{{ c['客戶編號'] }} - {{ c['名稱'] }} ({{ c['電話'] or '無電話' }})</option>
@@ -41,58 +44,35 @@
           </div>
         </div>
 
-        <h6 class="fw-bold mb-3 border-bottom pb-2">
-          <i class="bi bi-boxes text-info me-1"></i> 選擇商品與數量 (可多選)
-        </h6>
+        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+          <h6 class="fw-bold mb-0">
+            <i class="bi bi-boxes text-info me-1"></i> 選擇訂購商品 (下拉選單選擇品項)
+          </h6>
+          <button type="button" class="btn btn-sm btn-outline-info" onclick="addItemRow()">
+            <i class="bi bi-plus-circle me-1"></i> 新增商品品項
+          </button>
+        </div>
 
         <div class="table-responsive mb-4">
-          <table class="table table-dark-custom table-hover align-middle">
+          <table class="table table-dark-custom table-hover align-middle" id="itemsTable">
             <thead>
               <tr>
-                <th style="width: 50px;">選取</th>
-                <th>商品編號</th>
-                <th>商品名稱</th>
-                <th>分類</th>
-                <th class="text-end">目前單價</th>
-                <th class="text-end">現有庫存</th>
-                <th style="width: 120px;" class="text-center">訂購數量</th>
-                <th class="text-end">小計</th>
+                <th style="width: 40%;">選擇商品 (下拉選單)</th>
+                <th class="text-end" style="width: 15%;">目前單價</th>
+                <th class="text-end" style="width: 12%;">現有庫存</th>
+                <th class="text-center" style="width: 15%;">訂購數量 (正整數)</th>
+                <th class="text-end" style="width: 13%;">小計</th>
+                <th class="text-center" style="width: 5%;">操作</th>
               </tr>
             </thead>
-            <tbody>
-              {% for p in products %}
-              <tr id="prow-{{ p['商品編號'] }}">
-                <td class="text-center">
-                  <input class="form-check-input product-chk" type="checkbox" 
-                         name="product_ids" value="{{ p['商品編號'] }}" 
-                         id="chk_{{ p['商品編號'] }}"
-                         data-price="{{ p['單價'] }}"
-                         onchange="toggleProduct('{{ p['商品編號'] }}')">
-                </td>
-                <td class="fw-bold text-primary">{{ p['商品編號'] }}</td>
-                <td><label for="chk_{{ p['商品編號'] }}" class="fw-semibold mb-0" style="cursor:pointer">{{ p['名稱'] }}</label></td>
-                <td><span class="badge bg-secondary opacity-75">{{ p['分類'] or '通用' }}</span></td>
-                <td class="text-end text-info fw-bold">NT$ {{ '{:,.0f}'.format(p['單價']) }}</td>
-                <td class="text-end">{{ p['庫存'] }}</td>
-                <td>
-                  <input type="number" class="form-control form-control-sm text-center qty-input" 
-                         name="qty_{{ p['商品編號'] }}" id="qty_{{ p['商品編號'] }}"
-                         value="1" min="1" max="{{ p['庫存'] }}" 
-                         oninput="recalcTotal()" disabled required>
-                </td>
-                <td class="text-end fw-bold text-light" id="subtotal_{{ p['商品編號'] }}">NT$ 0</td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="8" class="text-center text-muted">無可用商品，請先新增商品資料</td>
-              </tr>
-              {% endfor %}
+            <tbody id="itemsBody">
+              <!-- 動態品項列會插入在此 -->
             </tbody>
           </table>
         </div>
 
         <div class="glass-card p-3 mb-4 d-flex justify-content-between align-items-center bg-dark bg-opacity-50">
-          <span class="text-muted"><i class="bi bi-info-circle me-1"></i>系統將自動鎖定「下單當時的單價」寫入訂單明細</span>
+          <span class="text-muted"><i class="bi bi-info-circle me-1"></i>數量限定正整數；系統將紀錄下單當時單價</span>
           <div class="fs-5 fw-bold">
             預計總額：<span id="grandTotal" class="text-warning fs-4">NT$ 0</span>
           </div>
@@ -108,32 +88,91 @@
     </div>
   </div>
 </div>
+
+<!-- Template 行供 JS 複製使用 -->
+<template id="rowTemplate">
+  <tr class="item-row">
+    <td>
+      <select name="product_ids" class="form-select product-select" required onchange="onProductChange(this)">
+        <option value="" disabled selected>-- 請選擇商品 --</option>
+        {% for p in products %}
+        <option value="{{ p['商品編號'] }}" data-price="{{ p['單價'] }}" data-stock="{{ p['庫存'] }}">
+          [{{ p['商品編號'] }}] {{ p['名稱'] }} (NT$ {{ '{:,.0f}'.format(p['單價']) }} / 庫存: {{ p['庫存'] }})
+        </option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="text-end text-info fw-bold unit-price">NT$ 0</td>
+    <td class="text-end stock-count">-</td>
+    <td>
+      <input type="number" name="quantities" class="form-control form-control-sm text-center qty-input" 
+             value="1" min="1" step="1" required oninput="recalcTotal()">
+    </td>
+    <td class="text-end fw-bold text-light subtotal">NT$ 0</td>
+    <td class="text-center">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">
+        <i class="bi bi-trash"></i>
+      </button>
+    </td>
+  </tr>
+</template>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function toggleProduct(pid) {
-  const chk = document.getElementById('chk_' + pid);
-  const qtyInput = document.getElementById('qty_' + pid);
-  qtyInput.disabled = !chk.checked;
-  if (chk.checked && (!qtyInput.value || qtyInput.value < 1)) {
-    qtyInput.value = 1;
+function addItemRow() {
+  const template = document.getElementById('rowTemplate');
+  const clone = template.content.cloneNode(true);
+  document.getElementById('itemsBody').appendChild(clone);
+  recalcTotal();
+}
+
+function removeRow(btn) {
+  const row = btn.closest('tr');
+  const tbody = document.getElementById('itemsBody');
+  if (tbody.querySelectorAll('.item-row').length <= 1) {
+    alert('訂單至少需要包含一項商品品項！');
+    return;
+  }
+  row.remove();
+  recalcTotal();
+}
+
+function onProductChange(selectEl) {
+  const row = selectEl.closest('tr');
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  
+  if (selectedOption && selectedOption.value) {
+    const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+    const stock = selectedOption.getAttribute('data-stock') || '0';
+    
+    row.querySelector('.unit-price').textContent = 'NT$ ' + price.toLocaleString();
+    row.querySelector('.stock-count').textContent = stock;
+  } else {
+    row.querySelector('.unit-price').textContent = 'NT$ 0';
+    row.querySelector('.stock-count').textContent = '-';
   }
   recalcTotal();
 }
 
 function recalcTotal() {
   let grandTotal = 0;
-  const checkboxes = document.querySelectorAll('.product-chk');
-  checkboxes.forEach(chk => {
-    const pid = chk.value;
-    const price = parseFloat(chk.getAttribute('data-price')) || 0;
-    const qtyInput = document.getElementById('qty_' + pid);
-    const subtotalEl = document.getElementById('subtotal_' + pid);
+  const rows = document.querySelectorAll('.item-row');
+  
+  rows.forEach(row => {
+    const select = row.querySelector('.product-select');
+    const qtyInput = row.querySelector('.qty-input');
+    const subtotalEl = row.querySelector('.subtotal');
     
-    if (chk.checked) {
-      let qty = parseInt(qtyInput.value) || 0;
-      if (qty < 1) qty = 1;
+    if (select && select.value) {
+      const selectedOption = select.options[select.selectedIndex];
+      const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+      let qty = parseFloat(qtyInput.value);
+      
+      if (isNaN(qty) || qty < 1) {
+        qty = 0;
+      }
+      
       const subtotal = price * qty;
       subtotalEl.textContent = 'NT$ ' + subtotal.toLocaleString();
       grandTotal += subtotal;
@@ -141,16 +180,69 @@ function recalcTotal() {
       subtotalEl.textContent = 'NT$ 0';
     }
   });
+  
   document.getElementById('grandTotal').textContent = 'NT$ ' + grandTotal.toLocaleString();
 }
 
 function validateForm() {
-  const checked = document.querySelectorAll('.product-chk:checked');
-  if (checked.length === 0) {
-    alert('請至少勾選一項商品！');
+  // 1. 驗證訂單編號格式 (SO+數字)
+  const orderId = document.getElementById('order_id').value.trim();
+  const orderIdRegex = /^SO\d+$/;
+  if (!orderIdRegex.test(orderId)) {
+    alert('訂單編號格式不正確，必須為 SO 開頭加上數字（例如：SO001）');
+    document.getElementById('order_id').focus();
     return false;
   }
+
+  // 2. 驗證客戶
+  const customerId = document.getElementById('customer_id').value;
+  if (!customerId) {
+    alert('請選擇客戶！');
+    return false;
+  }
+
+  // 3. 驗證品項
+  const rows = document.querySelectorAll('.item-row');
+  if (rows.length === 0) {
+    alert('請至少新增一項商品！');
+    return false;
+  }
+
+  const selectedPids = new Set();
+  for (let row of rows) {
+    const select = row.querySelector('.product-select');
+    const qtyInput = row.querySelector('.qty-input');
+    
+    if (!select.value) {
+      alert('請為所有品項選擇商品！');
+      select.focus();
+      return false;
+    }
+
+    if (selectedPids.has(select.value)) {
+      alert('商品項目重複選擇，請整合為同一筆品項！');
+      select.focus();
+      return false;
+    }
+    selectedPids.add(select.value);
+
+    // 4. 驗證數量三層擋 — 前端層：必須為正整數 (> 0 且整數)
+    const valStr = qtyInput.value.trim();
+    const valNum = Number(valStr);
+    
+    if (!valStr || isNaN(valNum) || !Number.isInteger(valNum) || valNum <= 0) {
+      alert('商品數量必須為正整數（大於 0 的整數，不可為負數、0 或小數）！');
+      qtyInput.focus();
+      return false;
+    }
+  }
+
   return true;
 }
+
+// 頁面載入時自動初始化第一列
+document.addEventListener('DOMContentLoaded', () => {
+  addItemRow();
+});
 </script>
 {% endblock %}
