@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}訂單詳情 {{ order['訂單編號'] }} — OrderPro{% endblock %}
+{% block page_title %}訂單詳情 ({{ order['訂單編號'] }}){% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+      <a href="{{ url_for('orders') }}" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-arrow-left"></i> 返回訂單列表
+      </a>
+      <button onclick="window.print()" class="btn btn-primary btn-sm">
+        <i class="bi bi-printer-fill me-1"></i> 列印出貨單
+      </button>
+    </div>
+
+    <!-- ── 出貨單與訂單資料 ───────────────────────────── -->
+    <div class="glass-card p-4 print-container">
+      <div class="row align-items-center border-bottom pb-4 mb-4">
+        <div class="col-md-8">
+          <div class="d-flex align-items-center gap-3">
+            <h3 class="fw-bold mb-0 text-primary">出貨單 SHIPPING NOTE</h3>
+            <span class="badge-status 
+              {% if order['狀態'] == '處理中' %}badge-processing
+              {% elif order['狀態'] == '已出貨' %}badge-shipped
+              {% elif order['狀態'] == '已完成' %}badge-completed
+              {% else %}badge-cancelled{% endif %} fs-6">
+              {{ order['狀態'] }}
+            </span>
+          </div>
+          <p class="text-muted mb-0 mt-1">單號：<span class="fw-bold text-light">{{ order['訂單編號'] }}</span></p>
+        </div>
+        <div class="col-md-4 text-md-end text-center mt-3 mt-md-0">
+          {% if qr_base64 %}
+          <div class="d-inline-block bg-white p-2 rounded shadow-sm">
+            <img src="data:image/png;base64,{{ qr_base64 }}" alt="Order QRCode" style="width: 110px; height: 110px;">
+          </div>
+          <div class="small text-muted mt-1" style="font-size: 0.75rem;">掃描開啟此訂單專屬頁面</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- 客戶與訂單基本資訊 -->
+      <div class="row g-4 mb-4">
+        <div class="col-md-6">
+          <div class="p-3 rounded" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--clr-card-border);">
+            <h6 class="fw-bold text-info mb-2"><i class="bi bi-building me-1"></i> 客戶資料</h6>
+            <div class="mb-1"><strong>名稱：</strong>{{ order['客戶名稱'] }}</div>
+            <div class="mb-1"><strong>編號：</strong>{{ order['客戶編號'] }}</div>
+            <div class="mb-1"><strong>電話：</strong>{{ order['客戶電話'] or '-' }}</div>
+            <div><strong>地址：</strong>{{ order['客戶地址'] or '-' }}</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="p-3 rounded" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--clr-card-border);">
+            <h6 class="fw-bold text-info mb-2"><i class="bi bi-info-circle me-1"></i> 訂單資訊</h6>
+            <div class="mb-1"><strong>訂單日期：</strong>{{ order['訂單日期'] }}</div>
+            <div class="mb-1"><strong>業務人員：</strong>{{ order['業務人員'] or '-' }}</div>
+            <div class="mb-1"><strong>狀態：</strong>{{ order['狀態'] }}</div>
+            <div><strong>付款/計價模式：</strong>下單當時單價鎖定</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 訂單商品明細 -->
+      <h6 class="fw-bold mb-3"><i class="bi bi-list-check me-1 text-primary"></i> 訂購商品明細</h6>
+      <div class="table-responsive mb-4">
+        <table class="table table-dark-custom table-bordered align-middle">
+          <thead>
+            <tr>
+              <th style="width: 60px;" class="text-center">#</th>
+              <th>商品編號</th>
+              <th>商品名稱</th>
+              <th class="text-end">成交單價 (歷史價格)</th>
+              <th class="text-center">數量</th>
+              <th class="text-end">小計</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td class="text-center text-muted">{{ loop.index }}</td>
+              <td class="fw-bold text-primary">{{ item['商品編號'] }}</td>
+              <td class="fw-semibold">{{ item['商品名稱'] }}</td>
+              <td class="text-end text-info">NT$ {{ '{:,.0f}'.format(item['單價']) }}</td>
+              <td class="text-center fw-bold">{{ item['數量'] }}</td>
+              <td class="text-end fw-bold">NT$ {{ '{:,.0f}'.format(item['數量'] * item['單價']) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" class="text-end fw-bold fs-5">訂單總金額 (TOTAL)：</td>
+              <td class="text-end fw-bold fs-5 text-warning">NT$ {{ '{:,.0f}'.format(total) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="row mt-4 pt-3 border-top text-muted small">
+        <div class="col-md-6">
+          <p class="mb-0">簽收人：____________________  日期：____ 年 ____ 月 ____ 日</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+          <p class="mb-0">OrderPro 訂單管理系統 — 自動產生之出貨單據</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

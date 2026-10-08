@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{% if action == 'add' %}新增客戶{% else %}編輯客戶{% endif %} — OrderPro{% endblock %}
+{% block page_title %}{% if action == 'add' %}新增客戶{% else %}編輯客戶{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="glass-card p-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-person-fill text-primary"></i> 
+          {% if action == 'add' %}新增客戶資料{% else %}編輯客戶資料{% endif %}
+        </h5>
+        <a href="{{ url_for('customers') }}" class="btn btn-sm btn-outline-light">
+          <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+      </div>
+
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label">客戶編號 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="id" 
+                 value="{{ customer['客戶編號'] if customer else '' }}" 
+                 placeholder="例：C006" 
+                 {% if action == 'edit' %}readonly{% else %}required{% endif %}>
+          {% if action == 'edit' %}<div class="form-text text-muted">客戶編號為主鍵，不可修改</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">客戶名稱 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" 
+                 value="{{ customer['名稱'] if customer else '' }}" 
+                 placeholder="請輸入公司或客戶名稱" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">電話</label>
+          <input type="text" class="form-control" name="phone" 
+                 value="{{ customer['電話'] if customer else '' }}" 
+                 placeholder="例：02-12345678">
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label">地址</label>
+          <input type="text" class="form-control" name="address" 
+                 value="{{ customer['地址'] if customer else '' }}" 
+                 placeholder="請輸入通訊地址">
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <a href="{{ url_for('customers') }}" class="btn btn-outline-light">取消</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> 儲存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

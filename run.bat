@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ========================================================
-echo  啟動 Python Flask Hello World 一頁式網站
+echo  啟動 Flask 訂單管理系統 (OrderPro)
 echo ========================================================
 echo.
 

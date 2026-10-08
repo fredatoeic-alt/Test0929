@@ -1,90 +1,78 @@
-# Flask Hello World 一頁式網站
+# Flask + SQLite + Bootstrap 5 訂單管理系統 (OrderPro)
 
-[![CI/CD Pipeline](https://github.com/fredatoeic-alt/Test0929/actions/workflows/deploy.yml/badge.svg)](https://github.com/fredatoeic-alt/Test0929/actions/workflows/deploy.yml)
-
-這是一個基於 **Python Flask** 網站微框架所打造的現代化「Hello World」一頁式網站（Single-Page Website）。
+本專案為基於 **Flask 3**、**SQLite 3** 與 **Bootstrap 5 (Dark Glassmorphism)** 打造的企業級訂單管理系統。
 
 ---
 
-## 專案結構
+## 📋 資料表架構 (Database Schema)
 
-```text
-Test0929/
-├── app.py              # Flask 後端主程式（包含首頁路由與互動 API）
-├── test_app.py         # Pytest 單元測試腳本
-├── templates/
-│   └── index.html      # 一頁式網站前端 HTML 模板（支援 Jinja2 動態渲染）
-├── static/
-│   └── style.css       # 現代化深色漸層響應式 CSS 樣式
-├── .github/workflows/
-│   └── deploy.yml      # GitHub Actions CI/CD Pipeline
-├── render.yaml         # Render Blueprint 部署配置
-├── requirements.txt    # Python 相依套件清單 (Flask, Gunicorn)
-├── run.bat             # Windows 專用一鍵啟動腳本 (支援 venv)
-└── README.md           # 專案說明文件
+1. **`customer` (客戶資料表)**
+   - `客戶編號` (Primary Key, TEXT)
+   - `名稱` (TEXT)
+   - `電話` (TEXT)
+   - `地址` (TEXT)
+
+2. **`product` (商品資料表)**
+   - `商品編號` (Primary Key, TEXT)
+   - `名稱` (TEXT)
+   - `單價` (REAL, CHECK >= 0)
+   - `庫存` (INTEGER, CHECK >= 0)
+   - `分類` (TEXT)
+
+3. **`orders` (訂單主檔)**
+   - `訂單編號` (Primary Key, TEXT)
+   - `客戶編號` (Foreign Key -> customer)
+   - `訂單日期` (TEXT)
+   - `狀態` (TEXT, 可為 '處理中' / '已出貨' / '已完成' / '已取消')
+   - `業務人員` (TEXT)
+
+4. **`order_item` (訂單明細 - 複合主鍵)**
+   - `訂單編號` (Foreign Key -> orders)
+   - `商品編號` (Foreign Key -> product)
+   - `數量` (INTEGER, CHECK > 0)
+   - `單價` (REAL, 保存下單當時單價，商品改價不影響歷史訂單)
+   - **複合主鍵**：`(訂單編號, 商品編號)`
+
+---
+
+## ✨ 核心功能特色
+
+- **管理員驗證系統**：保護系統存取權限。
+- **客戶與商品 CRUD 維護**：完整建立、查詢、更新、刪除客戶與商品資料。
+- **靈活新增訂單**：客戶選單採用下拉式選擇，商品支援一次勾選多項並即時動態計算小計與總額。
+- **下單歷史單價隔離**：`order_item` 保存下單當時的價格，後續修改商品單價不影響已成立的歷史訂單。
+- **訂單狀態即時更新**：可於訂單列表中直接切換狀態（處理中 / 已出貨 / 已完成 / 已取消），即時發送非同步 AJAX 請求完成更新。
+- **專屬訂單頁面與 QRCode 出貨單**：每張訂單享有獨立 `/order/<訂單編號>` 頁面，自動繪製出貨單及附帶可掃描跳轉的 QRCode，支援一鍵專用列印樣式。
+- **5 筆繁體中文測試資料**：系統初始化時已自動匯入包含台灣半導體、陽明海運、鴻海、統一超商與長榮航空等 5 筆繁體中文完整測試數據。
+
+---
+
+## 🔑 管理員帳號密碼
+
+- **帳號 (Username)**：`admin`
+- **密碼 (Password)**：`admin123`
+
+---
+
+## 🚀 啟動方式
+
+### 1. 初始化資料庫與測試資料 (視需要執行)
+若需重新產生包含 5 筆測試資料的全新資料庫，請在終端機執行：
+```powershell
+python create_db.py
 ```
 
----
-
-## 功能特點
-
-1. **一頁式導覽設計（Single-Page Layout）**：
-   - 頂部固定模糊導覽列（Sticky Glassmorphism Header）。
-   - 主視覺 Banner（Hero Section）搭配醒目的「Hello, World!」標題與行動呼籲。
-   - 網站特色展示區（Features Grid）。
-   - 伺服器狀態展示面板（即時顯示 Python 版本、Flask 版本與啟動時間）。
-
-2. **前端與後端即時 API 互動**：
-   - 內建非同步 Fetch API，使用者可在前端輸入姓名，發送非同步 POST 請求至 Flask 後端 `/api/hello`，由後端返回客製化 JSON 回應並動態更新在頁面上。
-
----
-
-## 如何啟動執行
-
-### 方法一：一鍵啟動（推薦）
-在 Windows 檔案總管中，直接雙擊專案目錄下的 **`run.bat`** 即可自動透過 Python 啟動伺服器。
-
-### 方法二：透過命令列啟動
-開啟 PowerShell 或 CMD 終端機，執行以下指令：
-
+### 2. 啟動 Flask 網站服務
+直接雙擊 `run.bat` 或在終端機執行：
 ```powershell
-# 若使用 Anaconda Python：
-& "C:\Users\freej\anaconda3\python.exe" app.py
-
-# 或若 Python 已加入環境變數 PATH：
 python app.py
 ```
 
-### 開啟網站
-伺服器啟動成功後，請開啟瀏覽器瀏覽：
+### 3. 開啟瀏覽器存取
 👉 **http://127.0.0.1:5000**
+使用管理員帳密 `admin` / `admin123` 登入即可開始維護。
 
----
-
-## 🚀 CI/CD 與 Render 自動部署設定
-
-本專案配置了完整的 GitHub Actions CI/CD 流水線：
-
-1. **CI（持續整合）**：
-   - 每次推送到 `main` 分支或發起 Pull Request 時，自動於 Ubuntu 環境安裝依賴並透過 `pytest test_app.py` 執行自動化測試。
-2. **CD（持續部署至 Render）**：
-   - 當測試全部通過後，自動透過 Render Deploy Hook 觸發線上即時部署。
-
-### ⚙️ 設定步驟
-
-1. **在 Render 上建立 Web Service**：
-   - 登入 [Render](https://render.com/)，點擊 **New +** -> **Web Service**（或 **Blueprint** 並選擇此倉庫）。
-   - Runtime: `Python`
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `gunicorn app:app`
-2. **取得 Deploy Hook URL**：
-   - 進入 Render 建立的 Web Service 頁面 -> **Settings**。
-   - 找到 **Deploy Hook** 區塊，複製 Webhook URL（格式類似 `https://api.render.com/deploy/srv-xxxxxx?key=yyyyyy`）。
-3. **在 GitHub 倉庫設定 Secret**：
-   - 前往 GitHub 倉庫 -> **Settings** -> **Secrets and variables** -> **Actions**。
-   - 點擊 **New repository secret**：
-     - **Name**：`RENDER_DEPLOY_HOOK_URL`
-     - **Secret**：貼上剛才從 Render 複製的 Deploy Hook URL。
-4. **完成**：
-   - 未來只要執行 `git push origin main`，GitHub Actions 就會自動跑測試並在通過後觸發 Render 部署上線！
-
+### 4. 執行測試單元腳本
+```powershell
+python -m pytest test_app.py -v
+```

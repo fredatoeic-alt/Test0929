@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}新增訂單 — OrderPro{% endblock %}
+{% block page_title %}新增訂單{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="glass-card p-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5 class="fw-bold mb-0"><i class="bi bi-cart-plus-fill text-primary"></i> 新增訂單</h5>
+        <a href="{{ url_for('orders') }}" class="btn btn-sm btn-outline-light">
+          <i class="bi bi-arrow-left"></i> 返回訂單列表
+        </a>
+      </div>
+
+      <form method="POST" id="orderForm" onsubmit="return validateForm()">
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <label class="form-label">訂單編號 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="order_id" value="{{ next_id }}" required>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">選擇客戶 <span class="text-danger">*</span></label>
+            <select name="customer_id" class="form-select" required>
+              <option value="" disabled selected>-- 請選擇客戶 --</option>
+              {% for c in customers %}
+              <option value="{{ c['客戶編號'] }}">{{ c['客戶編號'] }} - {{ c['名稱'] }} ({{ c['電話'] or '無電話' }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">訂單日期 <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" name="order_date" value="{{ today }}" required>
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">業務人員</label>
+            <input type="text" class="form-control" name="sales_person" value="{{ session.username }}">
+          </div>
+        </div>
+
+        <h6 class="fw-bold mb-3 border-bottom pb-2">
+          <i class="bi bi-boxes text-info me-1"></i> 選擇商品與數量 (可多選)
+        </h6>
+
+        <div class="table-responsive mb-4">
+          <table class="table table-dark-custom table-hover align-middle">
+            <thead>
+              <tr>
+                <th style="width: 50px;">選取</th>
+                <th>商品編號</th>
+                <th>商品名稱</th>
+                <th>分類</th>
+                <th class="text-end">目前單價</th>
+                <th class="text-end">現有庫存</th>
+                <th style="width: 120px;" class="text-center">訂購數量</th>
+                <th class="text-end">小計</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+              <tr id="prow-{{ p['商品編號'] }}">
+                <td class="text-center">
+                  <input class="form-check-input product-chk" type="checkbox" 
+                         name="product_ids" value="{{ p['商品編號'] }}" 
+                         id="chk_{{ p['商品編號'] }}"
+                         data-price="{{ p['單價'] }}"
+                         onchange="toggleProduct('{{ p['商品編號'] }}')">
+                </td>
+                <td class="fw-bold text-primary">{{ p['商品編號'] }}</td>
+                <td><label for="chk_{{ p['商品編號'] }}" class="fw-semibold mb-0" style="cursor:pointer">{{ p['名稱'] }}</label></td>
+                <td><span class="badge bg-secondary opacity-75">{{ p['分類'] or '通用' }}</span></td>
+                <td class="text-end text-info fw-bold">NT$ {{ '{:,.0f}'.format(p['單價']) }}</td>
+                <td class="text-end">{{ p['庫存'] }}</td>
+                <td>
+                  <input type="number" class="form-control form-control-sm text-center qty-input" 
+                         name="qty_{{ p['商品編號'] }}" id="qty_{{ p['商品編號'] }}"
+                         value="1" min="1" max="{{ p['庫存'] }}" 
+                         oninput="recalcTotal()" disabled required>
+                </td>
+                <td class="text-end fw-bold text-light" id="subtotal_{{ p['商品編號'] }}">NT$ 0</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="8" class="text-center text-muted">無可用商品，請先新增商品資料</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="glass-card p-3 mb-4 d-flex justify-content-between align-items-center bg-dark bg-opacity-50">
+          <span class="text-muted"><i class="bi bi-info-circle me-1"></i>系統將自動鎖定「下單當時的單價」寫入訂單明細</span>
+          <div class="fs-5 fw-bold">
+            預計總額：<span id="grandTotal" class="text-warning fs-4">NT$ 0</span>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <a href="{{ url_for('orders') }}" class="btn btn-outline-light">取消</a>
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check-circle-fill me-1"></i> 建立訂單
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleProduct(pid) {
+  const chk = document.getElementById('chk_' + pid);
+  const qtyInput = document.getElementById('qty_' + pid);
+  qtyInput.disabled = !chk.checked;
+  if (chk.checked && (!qtyInput.value || qtyInput.value < 1)) {
+    qtyInput.value = 1;
+  }
+  recalcTotal();
+}
+
+function recalcTotal() {
+  let grandTotal = 0;
+  const checkboxes = document.querySelectorAll('.product-chk');
+  checkboxes.forEach(chk => {
+    const pid = chk.value;
+    const price = parseFloat(chk.getAttribute('data-price')) || 0;
+    const qtyInput = document.getElementById('qty_' + pid);
+    const subtotalEl = document.getElementById('subtotal_' + pid);
+    
+    if (chk.checked) {
+      let qty = parseInt(qtyInput.value) || 0;
+      if (qty < 1) qty = 1;
+      const subtotal = price * qty;
+      subtotalEl.textContent = 'NT$ ' + subtotal.toLocaleString();
+      grandTotal += subtotal;
+    } else {
+      subtotalEl.textContent = 'NT$ 0';
+    }
+  });
+  document.getElementById('grandTotal').textContent = 'NT$ ' + grandTotal.toLocaleString();
+}
+
+function validateForm() {
+  const checked = document.querySelectorAll('.product-chk:checked');
+  if (checked.length === 0) {
+    alert('請至少勾選一項商品！');
+    return false;
+  }
+  return true;
+}
+</script>
+{% endblock %}

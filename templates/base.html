@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}訂單管理系統{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-w: 260px;
+      --clr-bg: #0b1120;
+      --clr-sidebar: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%);
+      --clr-card: rgba(30, 41, 59, 0.65);
+      --clr-card-border: rgba(99, 102, 241, 0.15);
+      --clr-primary: #818cf8;
+      --clr-primary-hover: #6366f1;
+      --clr-text: #f1f5f9;
+      --clr-muted: #94a3b8;
+    }
+    * { font-family: 'Inter', 'Noto Sans TC', sans-serif; }
+    body { background: var(--clr-bg); color: var(--clr-text); min-height: 100vh; }
+
+    /* ── Sidebar ───────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--clr-sidebar);
+      position: fixed;
+      left: 0; top: 0;
+      z-index: 1000;
+      border-right: 1px solid var(--clr-card-border);
+      transition: transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-brand {
+      padding: 1.5rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-brand h5 {
+      font-weight: 700;
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0;
+    }
+    .sidebar-brand small { color: var(--clr-muted); font-size: 0.75rem; }
+    .sidebar-nav { padding: 1rem 0; flex: 1; }
+    .sidebar-nav .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.7rem 1.25rem;
+      color: var(--clr-muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-radius: 0;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-nav .nav-link:hover,
+    .sidebar-nav .nav-link.active {
+      color: var(--clr-text);
+      background: rgba(129, 140, 248, 0.1);
+      border-left-color: var(--clr-primary);
+    }
+    .sidebar-nav .nav-link i { font-size: 1.1rem; width: 24px; text-align: center; }
+    .sidebar-footer {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* ── Main ──────────────────────────────────── */
+    .main-content {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+    }
+    .top-bar {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--clr-card-border);
+      padding: 0.85rem 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .top-bar h4 { margin: 0; font-weight: 600; font-size: 1.1rem; }
+    .page-body { padding: 1.5rem; }
+
+    /* ── Cards ─────────────────────────────────── */
+    .glass-card {
+      background: var(--clr-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--clr-card-border);
+      border-radius: 12px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .glass-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.1);
+    }
+
+    /* ── Stat Cards ────────────────────────────── */
+    .stat-card {
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .stat-icon {
+      width: 52px; height: 52px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+    .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 0.8rem; color: var(--clr-muted); margin-top: 0.2rem; }
+
+    /* ── Tables ────────────────────────────────── */
+    .table-dark-custom {
+      --bs-table-bg: transparent;
+      --bs-table-hover-bg: rgba(129, 140, 248, 0.06);
+      font-size: 0.9rem;
+    }
+    .table-dark-custom thead th {
+      background: rgba(30, 41, 59, 0.6);
+      border-bottom: 2px solid var(--clr-card-border);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--clr-muted);
+      white-space: nowrap;
+    }
+    .table-dark-custom td { vertical-align: middle; border-color: rgba(255,255,255,0.05); }
+
+    /* ── Status Badges ─────────────────────────── */
+    .badge-status {
+      padding: 0.35em 0.75em;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.3px;
+    }
+    .badge-processing { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+    .badge-shipped    { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+    .badge-completed  { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+    .badge-cancelled  { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+
+    /* ── Buttons ───────────────────────────────── */
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      border: none;
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      transform: translateY(-1px);
+    }
+    .btn-outline-light { border-color: rgba(255,255,255,0.15); font-weight: 500; }
+    .btn-outline-light:hover { background: rgba(255,255,255,0.08); }
+
+    /* ── Forms ─────────────────────────────────── */
+    .form-control, .form-select {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      color: var(--clr-text);
+    }
+    .form-control:focus, .form-select:focus {
+      background: rgba(15, 23, 42, 0.8);
+      border-color: var(--clr-primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      color: var(--clr-text);
+    }
+
+    /* ── Mobile Toggle ─────────────────────────── */
+    .sidebar-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--clr-text);
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+    @media (max-width: 991px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.show { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .sidebar-toggle { display: inline-block; }
+    }
+
+    /* ── Animations ────────────────────────────── */
+    .fade-in {
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Print ─────────────────────────────────── */
+    @media print {
+      .sidebar, .top-bar, .no-print { display: none !important; }
+      .main-content { margin-left: 0 !important; }
+      .glass-card { border: 1px solid #ccc; box-shadow: none; }
+      body { background: #fff; color: #000; }
+      .table-dark-custom { color: #000; }
+      .table-dark-custom thead th { background: #f0f0f0; color: #000; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────── -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <h5><i class="bi bi-box-seam-fill"></i> OrderPro</h5>
+    <small>訂單管理系統 v1.0</small>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
+       href="{{ url_for('dashboard') }}">
+      <i class="bi bi-grid-1x2-fill"></i> 儀表板
+    </a>
+    <a class="nav-link {% if 'customer' in request.endpoint|default('') %}active{% endif %}"
+       href="{{ url_for('customers') }}">
+      <i class="bi bi-people-fill"></i> 客戶管理
+    </a>
+    <a class="nav-link {% if 'product' in request.endpoint|default('') %}active{% endif %}"
+       href="{{ url_for('products') }}">
+      <i class="bi bi-box-fill"></i> 商品管理
+    </a>
+    <a class="nav-link {% if 'order' in request.endpoint|default('') %}active{% endif %}"
+       href="{{ url_for('orders') }}">
+      <i class="bi bi-receipt-cutoff"></i> 訂單管理
+    </a>
+  </div>
+  <div class="sidebar-footer">
+    <a class="nav-link text-danger" href="{{ url_for('logout') }}">
+      <i class="bi bi-box-arrow-left"></i> 登出
+    </a>
+  </div>
+</nav>
+
+<!-- ── Main Content ────────────────────────────── -->
+<div class="main-content">
+  <div class="top-bar">
+    <div class="d-flex align-items-center gap-3">
+      <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('show')">
+        <i class="bi bi-list"></i>
+      </button>
+      <h4>{% block page_title %}儀表板{% endblock %}</h4>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="text-muted" style="font-size:0.85rem;">
+        <i class="bi bi-person-circle"></i> {{ session.username|default('Admin') }}
+      </span>
+    </div>
+  </div>
+
+  <div class="page-body fade-in">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert"
+               style="border-radius:10px; font-size:0.9rem;">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
