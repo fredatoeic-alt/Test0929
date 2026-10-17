@@ -23,6 +23,35 @@ app.secret_key = 'order-mgmt-secret-2024'
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'orders.db')
 
+try:
+    import pymysql
+    import pymysql.cursors
+except ImportError:
+    pymysql = None
+
+# MySQL 北風資料庫連線設定 (支援環境變數覆寫)
+MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+MYSQL_PORT = int(os.environ.get('MYSQL_PORT', 3306))
+MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
+MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'Freda@1121')
+MYSQL_DB = os.environ.get('MYSQL_DB', 'northwind')
+
+
+def get_northwind_db():
+    """建立並回傳 MySQL 北風資料庫連線"""
+    if pymysql is None:
+        raise RuntimeError('PyMySQL 套件尚未安裝')
+    return pymysql.connect(
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DB,
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor,
+        connect_timeout=3
+    )
+
 # 自動檢查並初始化資料庫 (針對 Render 或全新部署環境)
 if not os.path.exists(DATABASE):
     try:
@@ -449,6 +478,223 @@ def order_delete(order_id):
     except Exception as e:
         flash(f'刪除失敗：{e}', 'danger')
     return redirect(url_for('orders'))
+
+
+# ═══════════════════════════════════════════════════════════════
+#  北風資料庫視覺化報表 (MySQL)
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/northwind/report')
+@login_required
+def northwind_report():
+    employees = []
+    summary = {
+        'total_revenue': 0.0,
+        'total_orders': 0,
+        'top_employee': '無',
+        'top_revenue': 0.0,
+        'avg_revenue': 0.0,
+        'employee_count': 0
+    }
+    db_error = None
+    try:
+        conn = get_northwind_db()
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    e.EmployeeID,
+                    CONCAT(e.FirstName, ' ', e.LastName) AS EmployeeName,
+                    e.FirstName,
+                    e.LastName,
+                    e.Title,
+                    e.City,
+                    e.Country,
+                    e.HireDate,
+                    COUNT(DISTINCT o.OrderID) AS OrderCount,
+                    COALESCE(SUM(od.Quantity), 0) AS TotalQuantity,
+                    COALESCE(ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2), 0) AS TotalPrice,
+                    COALESCE(ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) / NULLIF(COUNT(DISTINCT o.OrderID), 0), 2), 0) AS AvgOrderValue
+                FROM employees e
+                LEFT JOIN orders o ON e.EmployeeID = o.EmployeeID
+                LEFT JOIN `order details` od ON o.OrderID = od.OrderID
+                GROUP BY e.EmployeeID, e.FirstName, e.LastName, e.Title, e.City, e.Country, e.HireDate
+                ORDER BY TotalPrice DESC;
+            """)
+            raw_rows = cur.fetchall()
+
+            for rank, r in enumerate(raw_rows, start=1):
+                emp_dict = {
+                    'rank': rank,
+                    'EmployeeID': r['EmployeeID'],
+                    'EmployeeName': r['EmployeeName'],
+                    'Title': r['Title'] or '員工',
+                    'City': r['City'] or '',
+                    'Country': r['Country'] or '',
+                    'HireDate': r['HireDate'].strftime('%Y-%m-%d') if r['HireDate'] else '未知',
+                    'OrderCount': int(r['OrderCount'] or 0),
+                    'TotalQuantity': int(r['TotalQuantity'] or 0),
+                    'TotalPrice': float(r['TotalPrice'] or 0.0),
+                    'AvgOrderValue': float(r['AvgOrderValue'] or 0.0)
+                }
+                employees.append(emp_dict)
+
+            if employees:
+                total_rev = sum(e['TotalPrice'] for e in employees)
+                total_ord = sum(e['OrderCount'] for e in employees)
+                summary['total_revenue'] = total_rev
+                summary['total_orders'] = total_ord
+                summary['top_employee'] = employees[0]['EmployeeName']
+                summary['top_revenue'] = employees[0]['TotalPrice']
+                summary['employee_count'] = len(employees)
+                summary['avg_revenue'] = round(total_rev / len(employees), 2) if len(employees) > 0 else 0.0
+        conn.close()
+    except Exception as e:
+        db_error = str(e)
+
+    return render_template(
+        'northwind_report.html',
+        employees=employees,
+        summary=summary,
+        db_error=db_error
+    )
+
+
+@app.route('/api/northwind/radar-data')
+@login_required
+def api_northwind_radar_data():
+    try:
+        conn = get_northwind_db()
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    e.EmployeeID,
+                    CONCAT(e.FirstName, ' ', e.LastName) AS EmployeeName,
+                    e.Title,
+                    COUNT(DISTINCT o.OrderID) AS OrderCount,
+                    COALESCE(SUM(od.Quantity), 0) AS TotalQuantity,
+                    COALESCE(ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2), 0) AS TotalPrice,
+                    COALESCE(ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) / NULLIF(COUNT(DISTINCT o.OrderID), 0), 2), 0) AS AvgOrderValue
+                FROM employees e
+                LEFT JOIN orders o ON e.EmployeeID = o.EmployeeID
+                LEFT JOIN `order details` od ON o.OrderID = od.OrderID
+                GROUP BY e.EmployeeID, e.FirstName, e.LastName, e.Title
+                ORDER BY TotalPrice DESC;
+            """)
+            rows = cur.fetchall()
+        conn.close()
+
+        labels = [r['EmployeeName'] for r in rows]
+        sales = [float(r['TotalPrice'] or 0.0) for r in rows]
+        orders = [int(r['OrderCount'] or 0) for r in rows]
+        quantities = [int(r['TotalQuantity'] or 0) for r in rows]
+        titles = [r['Title'] or '' for r in rows]
+
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'sales': sales,
+            'orders': orders,
+            'quantities': quantities,
+            'titles': titles
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/northwind/employee/<int:emp_id>')
+@login_required
+def api_northwind_employee_detail(emp_id):
+    try:
+        conn = get_northwind_db()
+        with conn.cursor() as cur:
+            # 1. 員工基本資訊與總體數據
+            cur.execute("""
+                SELECT 
+                    e.EmployeeID,
+                    CONCAT(e.FirstName, ' ', e.LastName) AS EmployeeName,
+                    e.Title, e.BirthDate, e.HireDate, e.City, e.Country, e.Address, e.Extension,
+                    COUNT(DISTINCT o.OrderID) AS OrderCount,
+                    COALESCE(SUM(od.Quantity), 0) AS TotalQuantity,
+                    COALESCE(ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2), 0) AS TotalPrice,
+                    COALESCE(ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) / NULLIF(COUNT(DISTINCT o.OrderID), 0), 2), 0) AS AvgOrderValue,
+                    COUNT(DISTINCT od.ProductID) AS UniqueProducts,
+                    COUNT(DISTINCT o.CustomerID) AS UniqueCustomers
+                FROM employees e
+                LEFT JOIN orders o ON e.EmployeeID = o.EmployeeID
+                LEFT JOIN `order details` od ON o.OrderID = od.OrderID
+                WHERE e.EmployeeID = %s
+                GROUP BY e.EmployeeID, e.FirstName, e.LastName, e.Title, e.BirthDate, e.HireDate, e.City, e.Country, e.Address, e.Extension;
+            """, (emp_id,))
+            emp = cur.fetchone()
+            if not emp:
+                conn.close()
+                return jsonify({'success': False, 'error': '找不到此員工'}), 404
+
+            # 2. 產品品類銷售佔比
+            cur.execute("""
+                SELECT cat.CategoryName, 
+                       ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) AS Sales,
+                       SUM(od.Quantity) AS Quantity
+                FROM orders o
+                JOIN `order details` od ON o.OrderID = od.OrderID
+                JOIN products p ON od.ProductID = p.ProductID
+                JOIN categories cat ON p.CategoryID = cat.CategoryID
+                WHERE o.EmployeeID = %s
+                GROUP BY cat.CategoryName
+                ORDER BY Sales DESC;
+            """, (emp_id,))
+            categories = cur.fetchall()
+
+            # 3. 最近 5 筆訂單
+            cur.execute("""
+                SELECT o.OrderID, o.OrderDate, o.CustomerID, c.CompanyName,
+                       ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) AS OrderTotal
+                FROM orders o
+                JOIN customers c ON o.CustomerID = c.CustomerID
+                JOIN `order details` od ON o.OrderID = od.OrderID
+                WHERE o.EmployeeID = %s
+                GROUP BY o.OrderID, o.OrderDate, o.CustomerID, c.CompanyName
+                ORDER BY o.OrderDate DESC
+                LIMIT 5;
+            """, (emp_id,))
+            recent_orders = cur.fetchall()
+
+        conn.close()
+
+        emp_data = {
+            'EmployeeID': emp['EmployeeID'],
+            'EmployeeName': emp['EmployeeName'],
+            'Title': emp['Title'],
+            'HireDate': emp['HireDate'].strftime('%Y-%m-%d') if emp['HireDate'] else '',
+            'City': emp['City'] or '',
+            'Country': emp['Country'] or '',
+            'OrderCount': int(emp['OrderCount'] or 0),
+            'TotalQuantity': int(emp['TotalQuantity'] or 0),
+            'TotalPrice': float(emp['TotalPrice'] or 0.0),
+            'AvgOrderValue': float(emp['AvgOrderValue'] or 0.0),
+            'UniqueProducts': int(emp['UniqueProducts'] or 0),
+            'UniqueCustomers': int(emp['UniqueCustomers'] or 0),
+            'categories': [
+                {
+                    'name': c['CategoryName'],
+                    'sales': float(c['Sales'] or 0.0),
+                    'quantity': int(c['Quantity'] or 0)
+                } for c in categories
+            ],
+            'recent_orders': [
+                {
+                    'OrderID': o['OrderID'],
+                    'OrderDate': o['OrderDate'].strftime('%Y-%m-%d') if o['OrderDate'] else '',
+                    'CustomerID': o['CustomerID'],
+                    'CompanyName': o['CompanyName'],
+                    'OrderTotal': float(o['OrderTotal'] or 0.0)
+                } for o in recent_orders
+            ]
+        }
+
+        return jsonify({'success': True, 'data': emp_data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════════════

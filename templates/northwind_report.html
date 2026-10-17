@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+{% block title %}北風資料庫員工銷售業績 — OrderPro{% endblock %}
+{% block page_title %}北風資料庫視覺化報表{% endblock %}
+
+{% block content %}
+<style>
+  .report-header-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .chart-container-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.15);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-container-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+  }
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+    max-height: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mode-btn-group .btn {
+    font-size: 0.82rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  .mode-btn-group .btn.active {
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: #fff;
+    border-color: #818cf8;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+  }
+  .rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+  .rank-1 { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: #000; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+  .rank-2 { background: linear-gradient(135deg, #94a3b8, #cbd5e1); color: #000; box-shadow: 0 0 8px rgba(148, 163, 184, 0.4); }
+  .rank-3 { background: linear-gradient(135deg, #d97706, #f97316); color: #fff; box-shadow: 0 0 8px rgba(217, 119, 6, 0.4); }
+  .rank-other { background: rgba(255, 255, 255, 0.08); color: var(--clr-muted); border: 1px solid rgba(255, 255, 255, 0.1); }
+
+  .leaderboard-item {
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .leaderboard-item:hover {
+    background: rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateX(4px);
+  }
+  .leaderboard-item.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: #818cf8;
+  }
+  .sales-bar-bg {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.4rem;
+  }
+  .sales-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #c084fc);
+    border-radius: 3px;
+    transition: width 0.8s ease-in-out;
+  }
+</style>
+
+{% if db_error %}
+<div class="alert alert-danger d-flex align-items-center mb-4" role="alert" style="border-radius:12px;">
+  <i class="bi bi-exclamation-triangle-fill fs-3 me-3 text-danger"></i>
+  <div>
+    <h6 class="alert-heading fw-bold mb-1">MySQL 北風資料庫連線失敗</h6>
+    <div style="font-size:0.88rem;">連線資訊：localhost:3306 (資料庫: northwind / 使用者: root)</div>
+    <div class="text-white-50 mt-1" style="font-size:0.82rem; font-family: monospace;">錯誤訊息：{{ db_error }}</div>
+    <div class="mt-2" style="font-size:0.82rem;">請確認 MySQL 服務是否正在運行，且密碼已設定正確。</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── 頂部導航與標題 ───────────────────────────────── -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <h5 class="fw-bold mb-0" style="background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        北風資料庫 (Northwind) 員工銷售業績報表
+      </h5>
+      <span class="report-header-badge">
+        <i class="bi bi-database-check"></i> MySQL 連線正常
+      </span>
+    </div>
+    <p class="text-muted small mb-0">
+      呈現員工資料表 (Employees) 每位員工之總業績 (訂單明細 TotalPrice)，透過多維度雷達圖直觀比較團隊銷售成效。
+    </p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-outline-light" onclick="location.reload()">
+      <i class="bi bi-arrow-clockwise"></i> 重新載入
+    </button>
+    <button class="btn btn-sm btn-outline-light" onclick="window.print()">
+      <i class="bi bi-printer"></i> 列印報表
+    </button>
+  </div>
+</div>
+
+<!-- ── 核心指標卡片 ───────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="glass-card stat-card">
+      <div class="stat-icon" style="background:rgba(99,102,241,0.18); color:#818cf8;">
+        <i class="bi bi-cash-stack"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.5rem; color:#818cf8;">
+          ${{ '{:,.2f}'.format(summary.total_revenue) }}
+        </div>
+        <div class="stat-label">北風銷售總額 (Total Sales)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="glass-card stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.18); color:#f59e0b;">
+        <i class="bi bi-trophy-fill"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.35rem; color:#fbbf24;">
+          {{ summary.top_employee }}
+        </div>
+        <div class="stat-label">業績冠軍 (${{ '{:,.2f}'.format(summary.top_revenue) }})</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="glass-card stat-card">
+      <div class="stat-icon" style="background:rgba(52,211,153,0.18); color:#34d399;">
+        <i class="bi bi-receipt"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.5rem; color:#34d399;">
+          {{ summary.total_orders }} 筆
+        </div>
+        <div class="stat-label">累積成交訂單總數</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="glass-card stat-card">
+      <div class="stat-icon" style="background:rgba(236,72,153,0.18); color:#ec4899;">
+        <i class="bi bi-person-bounding-box"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.5rem; color:#f472b6;">
+          ${{ '{:,.2f}'.format(summary.avg_revenue) }}
+        </div>
+        <div class="stat-label">業務人均業績 (共 {{ summary.employee_count }} 位)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 主要圖表區 (雷達圖 + 排行榜) ───────────────────────── -->
+<div class="row g-4 mb-4">
+  <!-- 雷達圖卡片 -->
+  <div class="col-lg-7">
+    <div class="chart-container-card h-100 d-flex flex-column">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <h6 class="fw-bold mb-1 text-light">
+            <i class="bi bi-radar text-primary me-1"></i> 員工銷售業績雷達圖
+          </h6>
+          <small class="text-muted" id="chartSubtitle">各員工 TotalPrice 業績分佈與平衡度</small>
+        </div>
+        <div class="btn-group mode-btn-group" role="group">
+          <button type="button" class="btn btn-sm btn-outline-light active" id="btnModeRevenue" onclick="switchRadarMode('revenue')">
+            <i class="bi bi-currency-dollar"></i> 總業績
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-light" id="btnModeCompare" onclick="switchRadarMode('compare')">
+            <i class="bi bi-intersect"></i> 業績 vs 訂單
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-light" id="btnMode5D" onclick="switchRadarMode('5d')">
+            <i class="bi bi-pentagon"></i> 核心能力
+          </button>
+        </div>
+      </div>
+
+      <!-- 個人能力切換選擇器 (僅在 5D 模式顯示) -->
+      <div id="employeeSelectWrapper" class="mb-3 d-none">
+        <div class="d-flex align-items-center gap-2">
+          <label for="empSelector" class="form-label mb-0 text-muted small" style="white-space:nowrap;">選擇員工：</label>
+          <select id="empSelector" class="form-select form-select-sm" style="max-width:240px;" onchange="loadEmployee5D(this.value)">
+            {% for emp in employees %}
+            <option value="{{ emp.EmployeeID }}">{{ emp.EmployeeName }} ({{ emp.Title }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- 圖表畫布 -->
+      <div class="chart-wrapper flex-grow-1">
+        <canvas id="salesRadarChart"></canvas>
+      </div>
+
+      <!-- 雷達圖輔助說明 -->
+      <div class="mt-3 pt-3 border-top border-secondary border-opacity-25 d-flex align-items-center justify-content-between text-muted small">
+        <div>
+          <i class="bi bi-info-circle me-1"></i>
+          <span id="chartFooterHint">雷達圖頂點為每位業務同仁，半徑長度代表訂單累計總額 (TotalPrice)。</span>
+        </div>
+        <span class="badge bg-dark border border-secondary text-light">Northwind DB</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 業務員業績排行榜 -->
+  <div class="col-lg-5">
+    <div class="glass-card p-3 h-100 d-flex flex-column">
+      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+        <h6 class="fw-bold mb-0">
+          <i class="bi bi-bar-chart-steps text-warning me-1"></i> 員工銷售業績排行
+        </h6>
+        <span class="text-muted small">依 TotalPrice 降序</span>
+      </div>
+
+      <div class="flex-grow-1 overflow-auto pe-1" style="max-height: 480px;">
+        {% for emp in employees %}
+        {% set pct = (emp.TotalPrice / summary.top_revenue * 100) if summary.top_revenue > 0 else 0 %}
+        <div class="leaderboard-item {% if loop.first %}active{% endif %}" 
+             id="lead-item-{{ emp.EmployeeID }}"
+             onclick="selectEmployeeFromList({{ emp.EmployeeID }})">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+              <span class="rank-badge {% if emp.rank == 1 %}rank-1{% elif emp.rank == 2 %}rank-2{% elif emp.rank == 3 %}rank-3{% else %}rank-other{% endif %}">
+                {{ emp.rank }}
+              </span>
+              <div>
+                <div class="fw-bold text-light" style="font-size:0.92rem;">
+                  {{ emp.EmployeeName }}
+                </div>
+                <small class="text-muted" style="font-size:0.75rem;">
+                  {{ emp.Title }} · {{ emp.OrderCount }} 筆訂單
+                </small>
+              </div>
+            </div>
+            <div class="text-end">
+              <div class="fw-bold" style="color:var(--clr-primary); font-size:0.95rem;">
+                ${{ '{:,.2f}'.format(emp.TotalPrice) }}
+              </div>
+              <small class="text-muted" style="font-size:0.75rem;">
+                均單 ${{ '{:,.0f}'.format(emp.AvgOrderValue) }}
+              </small>
+            </div>
+          </div>
+          <!-- 進度條 (對比第一名業績) -->
+          <div class="sales-bar-bg">
+            <div class="sales-bar-fill" style="width: {{ pct }}%;"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="mt-3 pt-2 text-center">
+        <small class="text-muted">
+          點擊任一位同仁即可切換個人能力分析與商品結構
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 員工資料表與業績明細清單 ───────────────────────── -->
+<div class="glass-card p-0 mb-4">
+  <div class="d-flex align-items-center justify-content-between p-3 border-bottom border-secondary border-opacity-25">
+    <div class="d-flex align-items-center gap-2">
+      <h6 class="mb-0 fw-bold">
+        <i class="bi bi-table text-info me-1"></i> 員工資料表業績明細 (Employees & Orders)
+      </h6>
+      <span class="badge bg-secondary bg-opacity-25 text-light">{{ employees|length }} 筆記錄</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <input type="text" id="employeeSearchInput" class="form-control form-control-sm" 
+             placeholder="搜尋員工姓名或職稱..." style="max-width: 220px;" onkeyup="filterEmployeeTable()">
+    </div>
+  </div>
+
+  <div class="table-responsive p-3">
+    <table class="table table-dark-custom table-hover mb-0" id="employeeTable">
+      <thead>
+        <tr>
+          <th style="width:60px;">排名</th>
+          <th>員工姓名</th>
+          <th>職稱</th>
+          <th>地區 / 城市</th>
+          <th>到職日期</th>
+          <th class="text-end">訂單數</th>
+          <th class="text-end">銷售件數</th>
+          <th class="text-end">平均客單價</th>
+          <th class="text-end">總業績 (TotalPrice)</th>
+          <th class="text-center" style="width:110px;">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for emp in employees %}
+        <tr>
+          <td>
+            <span class="rank-badge {% if emp.rank == 1 %}rank-1{% elif emp.rank == 2 %}rank-2{% elif emp.rank == 3 %}rank-3{% else %}rank-other{% endif %}">
+              {{ emp.rank }}
+            </span>
+          </td>
+          <td class="fw-bold text-light">
+            <i class="bi bi-person-fill text-muted me-1"></i> {{ emp.EmployeeName }}
+          </td>
+          <td><span class="badge bg-dark border border-secondary text-secondary-emphasis">{{ emp.Title }}</span></td>
+          <td>{{ emp.City }}, {{ emp.Country }}</td>
+          <td>{{ emp.HireDate }}</td>
+          <td class="text-end fw-semibold">{{ emp.OrderCount }} 筆</td>
+          <td class="text-end text-muted">{{ '{:,}'.format(emp.TotalQuantity) }} 件</td>
+          <td class="text-end text-muted">${{ '{:,.2f}'.format(emp.AvgOrderValue) }}</td>
+          <td class="text-end fw-bold" style="color:#818cf8; font-size:1rem;">
+            ${{ '{:,.2f}'.format(emp.TotalPrice) }}
+          </td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-primary" style="font-size:0.78rem;" 
+                    onclick="showEmployeeModal({{ emp.EmployeeID }})">
+              <i class="bi bi-search"></i> 明細
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── 員工詳細分析互動 Modal ───────────────────────── -->
+<div class="modal fade" id="employeeDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="background:#0f172a; border:1px solid rgba(99,102,241,0.3); border-radius:16px;">
+      <div class="modal-header border-secondary border-opacity-25 pb-2">
+        <h5 class="modal-title fw-bold text-light" id="modalEmpName">
+          <i class="bi bi-person-badge-fill text-primary me-2"></i>員工銷售明細
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="modalLoading" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="text-muted small mt-2">載入中...</p>
+        </div>
+        <div id="modalContent" class="d-none">
+          <!-- 員工基本數據 -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-3 col-6">
+              <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
+                <small class="text-muted d-block">職稱</small>
+                <span class="fw-bold text-light" id="modalTitle">-</span>
+              </div>
+            </div>
+            <div class="col-md-3 col-6">
+              <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
+                <small class="text-muted d-block">累積業績 (TotalPrice)</small>
+                <span class="fw-bold" style="color:#818cf8;" id="modalTotalPrice">-</span>
+              </div>
+            </div>
+            <div class="col-md-3 col-6">
+              <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
+                <small class="text-muted d-block">訂單數量</small>
+                <span class="fw-bold text-light" id="modalOrderCount">-</span>
+              </div>
+            </div>
+            <div class="col-md-3 col-6">
+              <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
+                <small class="text-muted d-block">服務客戶數</small>
+                <span class="fw-bold text-light" id="modalCustomerCount">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 品類銷售分佈 -->
+          <h6 class="fw-bold text-light mb-2">
+            <i class="bi bi-pie-chart text-info me-1"></i> 各產品品類銷售佔比
+          </h6>
+          <div class="table-responsive mb-4">
+            <table class="table table-sm table-dark-custom mb-0">
+              <thead>
+                <tr>
+                  <th>產品分類 (Category)</th>
+                  <th class="text-end">銷售件數</th>
+                  <th class="text-end">銷售金額 (Sales)</th>
+                  <th style="width:30%;">佔比</th>
+                </tr>
+              </thead>
+              <tbody id="modalCategoryTable"></tbody>
+            </table>
+          </div>
+
+          <!-- 最近 5 筆訂單 -->
+          <h6 class="fw-bold text-light mb-2">
+            <i class="bi bi-clock-history text-warning me-1"></i> 最近成交訂單
+          </h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-dark-custom mb-0">
+              <thead>
+                <tr>
+                  <th>訂單編號</th>
+                  <th>訂單日期</th>
+                  <th>客戶名稱</th>
+                  <th class="text-end">訂單金額</th>
+                </tr>
+              </thead>
+              <tbody id="modalOrdersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary border-opacity-25">
+        <button type="button" class="btn btn-sm btn-outline-light" data-bs-dismiss="modal">關閉</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// 伺服器傳遞之員工資料
+const employeesData = {{ employees|tojson }};
+const summaryData = {{ summary|tojson }};
+
+let currentRadarChart = null;
+let currentMode = 'revenue'; // 'revenue', 'compare', '5d'
+let selectedEmpId = employeesData.length > 0 ? employeesData[0].EmployeeID : null;
+
+// 初始化雷達圖
+document.addEventListener('DOMContentLoaded', () => {
+  renderRevenueRadar();
+});
+
+// 模式 1：全體員工總業績雷達圖 (TotalPrice)
+function renderRevenueRadar() {
+  const ctx = document.getElementById('salesRadarChart').getContext('2d');
+  if (currentRadarChart) currentRadarChart.destroy();
+
+  const labels = employeesData.map(e => e.EmployeeName);
+  const dataSales = employeesData.map(e => e.TotalPrice);
+
+  // 漸層背景色彩
+  const gradient = ctx.createRadialGradient(200, 200, 50, 200, 200, 250);
+  gradient.addColorStop(0, 'rgba(129, 140, 248, 0.45)');
+  gradient.addColorStop(1, 'rgba(99, 102, 241, 0.08)');
+
+  currentRadarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '總業績 TotalPrice (USD)',
+        data: dataSales,
+        backgroundColor: gradient,
+        borderColor: '#818cf8',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#c084fc',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#818cf8',
+        pointRadius: 5,
+        pointHoverRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          angleLines: {
+            color: 'rgba(255, 255, 255, 0.12)'
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.08)'
+          },
+          pointLabels: {
+            color: '#f1f5f9',
+            font: {
+              size: 12,
+              weight: '600',
+              family: "'Inter', 'Noto Sans TC', sans-serif"
+            }
+          },
+          ticks: {
+            color: '#94a3b8',
+            backdropColor: 'transparent',
+            callback: function(value) {
+              return '$' + (value / 1000).toFixed(0) + 'k';
+            }
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#f1f5f9',
+            font: { size: 12 }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          titleColor: '#818cf8',
+          bodyColor: '#f1f5f9',
+          borderColor: 'rgba(129, 140, 248, 0.4)',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const emp = employeesData[context.dataIndex];
+              return [
+                ` 總業績: $${context.raw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                ` 訂單數: ${emp.OrderCount} 筆`,
+                ` 平均客單: $${emp.AvgOrderValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`
+              ];
+            }
+          }
+        }
+      }
+    }
+  });
+
+  document.getElementById('chartSubtitle').textContent = '各員工 TotalPrice 業績分佈與平衡度';
+  document.getElementById('chartFooterHint').textContent = '雷達圖頂點為每位業務同仁，半徑長度代表訂單累計總額 (TotalPrice)。';
+}
+
+// 模式 2：業績 vs 訂單數 雙維度標準化雷達圖
+function renderCompareRadar() {
+  const ctx = document.getElementById('salesRadarChart').getContext('2d');
+  if (currentRadarChart) currentRadarChart.destroy();
+
+  const labels = employeesData.map(e => e.EmployeeName);
+  
+  // 標準化至 0 ~ 100 分
+  const maxSales = Math.max(...employeesData.map(e => e.TotalPrice));
+  const maxOrders = Math.max(...employeesData.map(e => e.OrderCount));
+
+  const normSales = employeesData.map(e => Math.round((e.TotalPrice / maxSales) * 100));
+  const normOrders = employeesData.map(e => Math.round((e.OrderCount / maxOrders) * 100));
+
+  currentRadarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '業績指數 (最高 100)',
+          data: normSales,
+          backgroundColor: 'rgba(129, 140, 248, 0.25)',
+          borderColor: '#818cf8',
+          borderWidth: 2,
+          pointBackgroundColor: '#818cf8',
+          pointRadius: 4
+        },
+        {
+          label: '訂單量指數 (最高 100)',
+          data: normOrders,
+          backgroundColor: 'rgba(52, 211, 153, 0.25)',
+          borderColor: '#34d399',
+          borderWidth: 2,
+          pointBackgroundColor: '#34d399',
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0,
+          max: 100,
+          angleLines: { color: 'rgba(255, 255, 255, 0.12)' },
+          grid: { color: 'rgba(255, 255, 255, 0.08)' },
+          pointLabels: {
+            color: '#f1f5f9',
+            font: { size: 12, weight: '600' }
+          },
+          ticks: {
+            color: '#94a3b8',
+            backdropColor: 'transparent',
+            stepSize: 20
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: { color: '#f1f5f9' }
+        },
+        tooltip: {
+          callbacks: {
+            afterBody: function(contexts) {
+              const idx = contexts[0].dataIndex;
+              const emp = employeesData[idx];
+              return `實際業績: $${emp.TotalPrice.toLocaleString()} | 訂單: ${emp.OrderCount} 筆`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  document.getElementById('chartSubtitle').textContent = '比較各員工之「銷售總額」與「訂單成交量」相對強弱 (百分制)';
+  document.getElementById('chartFooterHint').textContent = '紫線代表業績指數、綠線代表訂單量指數，可用於評估大單型業務或多單型業務。';
+}
+
+// 模式 3：個人核心五維能力雷達圖
+function loadEmployee5D(empId) {
+  selectedEmpId = parseInt(empId);
+  const emp = employeesData.find(e => e.EmployeeID === selectedEmpId);
+  if (!emp) return;
+
+  // 計算所有人的極值作標準化
+  const maxSales = Math.max(...employeesData.map(e => e.TotalPrice));
+  const maxOrders = Math.max(...employeesData.map(e => e.OrderCount));
+  const maxQty = Math.max(...employeesData.map(e => e.TotalQuantity));
+  const maxAOV = Math.max(...employeesData.map(e => e.AvgOrderValue));
+
+  const scoreSales = Math.round((emp.TotalPrice / maxSales) * 100);
+  const scoreOrders = Math.round((emp.OrderCount / maxOrders) * 100);
+  const scoreQty = Math.round((emp.TotalQuantity / maxQty) * 100);
+  const scoreAOV = Math.round((emp.AvgOrderValue / maxAOV) * 100);
+  // 綜合平衡分
+  const scoreBalanced = Math.round((scoreSales + scoreOrders + scoreQty + scoreAOV) / 4);
+
+  // 平均值
+  const avgSales = Math.round((employeesData.reduce((a, b) => a + b.TotalPrice, 0) / employeesData.length / maxSales) * 100);
+  const avgOrders = Math.round((employeesData.reduce((a, b) => a + b.OrderCount, 0) / employeesData.length / maxOrders) * 100);
+  const avgQty = Math.round((employeesData.reduce((a, b) => a + b.TotalQuantity, 0) / employeesData.length / maxQty) * 100);
+  const avgAOV = Math.round((employeesData.reduce((a, b) => a + b.AvgOrderValue, 0) / employeesData.length / maxAOV) * 100);
+  const avgBalanced = Math.round((avgSales + avgOrders + avgQty + avgAOV) / 4);
+
+  const ctx = document.getElementById('salesRadarChart').getContext('2d');
+  if (currentRadarChart) currentRadarChart.destroy();
+
+  currentRadarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['銷售業績 (TotalPrice)', '訂單數量 (Orders)', '商品件數 (Quantity)', '平均客單價 (AOV)', '綜合戰力 (Overall)'],
+      datasets: [
+        {
+          label: `${emp.EmployeeName} 能力`,
+          data: [scoreSales, scoreOrders, scoreQty, scoreAOV, scoreBalanced],
+          backgroundColor: 'rgba(236, 72, 153, 0.35)',
+          borderColor: '#ec4899',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#f472b6',
+          pointRadius: 5
+        },
+        {
+          label: '團隊平均基準',
+          data: [avgSales, avgOrders, avgQty, avgAOV, avgBalanced],
+          backgroundColor: 'rgba(148, 163, 184, 0.15)',
+          borderColor: '#94a3b8',
+          borderWidth: 1.5,
+          borderDash: [5, 5],
+          pointRadius: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0,
+          max: 100,
+          angleLines: { color: 'rgba(255, 255, 255, 0.12)' },
+          grid: { color: 'rgba(255, 255, 255, 0.08)' },
+          pointLabels: {
+            color: '#f1f5f9',
+            font: { size: 12, weight: '600' }
+          },
+          ticks: {
+            color: '#94a3b8',
+            backdropColor: 'transparent',
+            stepSize: 20
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          labels: { color: '#f1f5f9' }
+        }
+      }
+    }
+  });
+
+  document.getElementById('chartSubtitle').textContent = `${emp.EmployeeName} (${emp.Title}) 核心銷售能力五角分析`;
+  document.getElementById('chartFooterHint').textContent = `粉紅線為 ${emp.EmployeeName}，灰虛線為團隊平均水平。`;
+}
+
+// 切換雷達圖模式
+function switchRadarMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn-group .btn').forEach(b => b.classList.remove('active'));
+  const empSelectWrapper = document.getElementById('employeeSelectWrapper');
+
+  if (mode === 'revenue') {
+    document.getElementById('btnModeRevenue').classList.add('active');
+    empSelectWrapper.classList.add('d-none');
+    renderRevenueRadar();
+  } else if (mode === 'compare') {
+    document.getElementById('btnModeCompare').classList.add('active');
+    empSelectWrapper.classList.add('d-none');
+    renderCompareRadar();
+  } else if (mode === '5d') {
+    document.getElementById('btnMode5D').classList.add('active');
+    empSelectWrapper.classList.remove('d-none');
+    if (selectedEmpId) {
+      document.getElementById('empSelector').value = selectedEmpId;
+      loadEmployee5D(selectedEmpId);
+    }
+  }
+}
+
+// 點擊右側排行榜項目
+function selectEmployeeFromList(empId) {
+  document.querySelectorAll('.leaderboard-item').forEach(el => el.classList.remove('active'));
+  const item = document.getElementById('lead-item-' + empId);
+  if (item) item.classList.add('active');
+
+  selectedEmpId = empId;
+  // 自動切換到 5D 能力雷達圖
+  switchRadarMode('5d');
+}
+
+// 搜尋表格過濾
+function filterEmployeeTable() {
+  const query = document.getElementById('employeeSearchInput').value.toLowerCase();
+  const rows = document.querySelectorAll('#employeeTable tbody tr');
+  rows.forEach(r => {
+    const text = r.textContent.toLowerCase();
+    r.style.display = text.includes(query) ? '' : 'none';
+  });
+}
+
+// 顯示員工銷售詳情 Modal
+function showEmployeeModal(empId) {
+  const modalEl = document.getElementById('employeeDetailModal');
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+
+  const loading = document.getElementById('modalLoading');
+  const content = document.getElementById('modalContent');
+  loading.classList.remove('d-none');
+  content.classList.add('d-none');
+
+  fetch(`/api/northwind/employee/${empId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) {
+        alert('無法取得明細：' + data.error);
+        modal.hide();
+        return;
+      }
+      const emp = data.data;
+      document.getElementById('modalEmpName').innerHTML = `
+        <i class="bi bi-person-badge-fill text-primary me-2"></i>${emp.EmployeeName} 銷售業績明細
+      `;
+      document.getElementById('modalTitle').textContent = emp.Title;
+      document.getElementById('modalTotalPrice').textContent = '$' + emp.TotalPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('modalOrderCount').textContent = emp.OrderCount + ' 筆';
+      document.getElementById('modalCustomerCount').textContent = emp.UniqueCustomers + ' 家';
+
+      // 產品品類銷售
+      const catTbody = document.getElementById('modalCategoryTable');
+      catTbody.innerHTML = '';
+      const totalCatSales = emp.categories.reduce((a, b) => a + b.sales, 0);
+
+      emp.categories.forEach(c => {
+        const pct = totalCatSales > 0 ? ((c.sales / totalCatSales) * 100).toFixed(1) : 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="fw-semibold text-light">${c.name}</td>
+          <td class="text-end">${c.quantity.toLocaleString()}</td>
+          <td class="text-end" style="color:#818cf8;">$${c.sales.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:6px; background:rgba(255,255,255,0.1);">
+                <div class="progress-bar bg-primary" style="width:${pct}%;"></div>
+              </div>
+              <small class="text-muted" style="min-width:38px;">${pct}%</small>
+            </div>
+          </td>
+        `;
+        catTbody.appendChild(tr);
+      });
+
+      // 最近 5 筆訂單
+      const ordTbody = document.getElementById('modalOrdersTable');
+      ordTbody.innerHTML = '';
+      emp.recent_orders.forEach(o => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="fw-bold" style="color:var(--clr-primary)">#${o.OrderID}</td>
+          <td>${o.OrderDate}</td>
+          <td>${o.CompanyName}</td>
+          <td class="text-end fw-semibold text-light">$${o.OrderTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+        `;
+        ordTbody.appendChild(tr);
+      });
+
+      loading.classList.add('d-none');
+      content.classList.remove('d-none');
+    })
+    .catch(err => {
+      alert('連線失敗：' + err);
+      modal.hide();
+    });
+}
+</script>
+{% endblock %}

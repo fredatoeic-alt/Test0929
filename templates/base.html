@@ -237,9 +237,13 @@
        href="{{ url_for('products') }}">
       <i class="bi bi-box-fill"></i> 商品管理
     </a>
-    <a class="nav-link {% if 'order' in request.endpoint|default('') %}active{% endif %}"
+    <a class="nav-link {% if 'order' in request.endpoint|default('') and 'northwind' not in request.endpoint|default('') %}active{% endif %}"
        href="{{ url_for('orders') }}">
       <i class="bi bi-receipt-cutoff"></i> 訂單管理
+    </a>
+    <a class="nav-link {% if 'northwind' in request.endpoint|default('') %}active{% endif %}"
+       href="{{ url_for('northwind_report') }}">
+      <i class="bi bi-pie-chart-fill"></i> 北風業績雷達圖
     </a>
   </div>
   <div class="sidebar-footer">

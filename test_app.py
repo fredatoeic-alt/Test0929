@@ -104,6 +104,12 @@ def test_order_id_format_validation(client):
     assert '訂單編號格式不正確'.encode('utf-8') in resp_invalid.data
 
     # 測試合法格式 SO999
+    conn = sqlite3.connect(DATABASE)
+    conn.execute('DELETE FROM order_item WHERE 訂單編號 = "SO999"')
+    conn.execute('DELETE FROM orders WHERE 訂單編號 = "SO999"')
+    conn.commit()
+    conn.close()
+
     data_valid = MultiDict([
         ('order_id', 'SO999'),
         ('customer_id', 'C001'),
@@ -115,6 +121,13 @@ def test_order_id_format_validation(client):
     resp_valid = client.post('/order/add', data=data_valid, follow_redirects=True)
     assert resp_valid.status_code == 200
     assert 'SO999'.encode('utf-8') in resp_valid.data, f"Response content: {resp_valid.data.decode('utf-8')}"
+
+    # 清理測試資料
+    conn = sqlite3.connect(DATABASE)
+    conn.execute('DELETE FROM order_item WHERE 訂單編號 = "SO999"')
+    conn.execute('DELETE FROM orders WHERE 訂單編號 = "SO999"')
+    conn.commit()
+    conn.close()
 
 def test_quantity_positive_integer_validation(client):
     """需求5：測試數量正整數驗證 (後端與資料庫)"""
@@ -187,3 +200,49 @@ def test_order_historical_price_isolation(client):
     conn.close()
 
     assert orig_order_price == current_order_price
+
+
+def is_northwind_available():
+    try:
+        from app import get_northwind_db
+        conn = get_northwind_db()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(not is_northwind_available(), reason="MySQL Northwind database not available in environment")
+def test_northwind_report_page(client):
+    """測試北風資料庫視覺化報表頁面與雷達圖結構"""
+    resp = client.get('/northwind/report')
+    assert resp.status_code == 200
+    assert '北風資料庫'.encode('utf-8') in resp.data
+    assert '雷達圖'.encode('utf-8') in resp.data
+    assert 'salesRadarChart'.encode('utf-8') in resp.data
+    assert 'Margaret Peacock'.encode('utf-8') in resp.data
+
+
+@pytest.mark.skipif(not is_northwind_available(), reason="MySQL Northwind database not available in environment")
+def test_northwind_radar_api(client):
+    """測試北風雷達圖資料 API"""
+    resp = client.get('/api/northwind/radar-data')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert 'Margaret Peacock' in data['labels']
+    assert len(data['sales']) >= 9
+    assert data['sales'][0] > 0
+
+
+@pytest.mark.skipif(not is_northwind_available(), reason="MySQL Northwind database not available in environment")
+def test_northwind_employee_detail_api(client):
+    """測試北風員工個人銷售明細 API"""
+    resp = client.get('/api/northwind/employee/4')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert data['data']['EmployeeName'] == 'Margaret Peacock'
+    assert len(data['data']['categories']) > 0
+    assert len(data['data']['recent_orders']) > 0
+
