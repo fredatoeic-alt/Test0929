@@ -246,3 +246,15 @@ def test_northwind_employee_detail_api(client):
     assert len(data['data']['categories']) > 0
     assert len(data['data']['recent_orders']) > 0
 
+
+def test_stock_growth_dashboard_routes(client):
+    """測試上市公司高成長分析 Web Dashboard 頁面與 CSV 資料路由 (公開免登入)"""
+    resp = client.get('/stock')
+    assert resp.status_code == 200
+    assert '上市公司高成長分析'.encode('utf-8') in resp.data
+
+    csv_resp = client.get('/data/stock_data.csv')
+    assert csv_resp.status_code == 200
+    assert len(csv_resp.data) > 1000
+
+

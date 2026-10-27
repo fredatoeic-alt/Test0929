@@ -1,0 +1,571 @@
+/* ==========================================================================
+   Power BI Dashboard 1 經典樣式完全復刻系統
+   ========================================================================== */
+
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei",
+    "PingFang TC", Roboto, sans-serif;
+
+  /* Power BI 年度代表色 */
+  --pbi-blue: #3E77BD;   /* 2021FY */
+  --pbi-green: #3B9C82;  /* 2022FY */
+  --pbi-orange: #D98A2B; /* 2023FY */
+
+  /* 介面色系 */
+  --pbi-bg-app: #F5F6F8;
+  --pbi-bg-card: #FFFFFF;
+  --pbi-border: #E5E7EB;
+  --pbi-text-title: #111827;
+  --pbi-text-sub: #6B7280;
+  --pbi-text-muted: #9CA3AF;
+
+  /* Finding 底部深藍 */
+  --pbi-finding-bg: #182A40;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--pbi-bg-app);
+  color: var(--pbi-text-title);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dashboard-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   Header 頂部區域（完全對齊 Power BI 截圖左上角）
+   ========================================================================== */
+.pbi-header {
+  padding: 24px 32px 14px 32px;
+  background-color: var(--pbi-bg-app);
+}
+
+.pbi-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.pbi-main-title {
+  font-size: 21px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.3px;
+}
+
+.pbi-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pbi-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pbi-tool-btn:hover {
+  background: #F3F4F6;
+  border-color: #9CA3AF;
+}
+
+.pbi-tool-btn.reset {
+  color: #DC2626;
+  border-color: #FCA5A5;
+}
+
+.pbi-tool-btn.reset:hover {
+  background: #FEF2F2;
+}
+
+/* 財務年度下拉選單 */
+.pbi-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: fit-content;
+}
+
+.pbi-filter-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.pbi-select-box {
+  position: relative;
+  width: 250px;
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+
+.pbi-select-box:hover,
+.pbi-select-box:focus-within {
+  border-color: #E2812E;
+}
+
+.pbi-dropdown-select {
+  width: 100%;
+  padding: 7px 32px 7px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #E2812E; /* 截圖中的橘紅年度文字 */
+  border: none;
+  outline: none;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+}
+
+.pbi-select-arrow {
+  position: absolute;
+  right: 8px;
+  color: #E2812E;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   主要內容區域
+   ========================================================================== */
+.dashboard-main {
+  flex: 1;
+  padding: 0 32px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ==========================================================================
+   四張 KPI 卡片（Power BI 極簡白色卡片風格）
+   ========================================================================== */
+.pbi-kpi-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.pbi-kpi-card {
+  background: #FFFFFF;
+  border: 1px solid var(--pbi-border);
+  border-radius: 3px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 95px;
+}
+
+.pbi-kpi-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--pbi-text-sub);
+  margin-bottom: 8px;
+}
+
+.pbi-kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   左右兩張核心圖表（Power BI 雙欄卡片佈局）
+   ========================================================================== */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.pbi-chart-card {
+  background: #FFFFFF;
+  border: 1px solid var(--pbi-border);
+  border-radius: 3px;
+  padding: 18px 22px 14px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pbi-chart-title-area {
+  margin-bottom: 12px;
+}
+
+.pbi-chart-main-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #1F2937;
+  line-height: 1.3;
+}
+
+.pbi-chart-subtitle {
+  font-size: 11.5px;
+  color: var(--pbi-text-sub);
+  margin-top: 3px;
+}
+
+.pbi-chart-plot {
+  position: relative;
+}
+
+.pbi-chart-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--pbi-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pbi-chart-legend {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #4B5563;
+}
+
+.pbi-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pbi-chart-empty {
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pbi-text-sub);
+  font-size: 13px;
+}
+
+/* Tooltip */
+.pbi-tooltip {
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  font-size: 12px;
+}
+
+.pbi-tooltip-header {
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #E5E7EB;
+  padding-bottom: 2px;
+}
+
+.pbi-tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #4B5563;
+  margin: 2px 0;
+}
+
+/* ==========================================================================
+   底部 Finding 區塊（Power BI 深藍色圓角區塊）
+   ========================================================================== */
+.pbi-finding-section {
+  width: 100%;
+}
+
+.pbi-finding-box {
+  background-color: var(--pbi-finding-bg);
+  border-radius: 12px;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 10px rgba(24, 42, 64, 0.25);
+}
+
+.pbi-finding-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: #D1D5DB;
+}
+
+.pbi-finding-headline {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #FFFFFF;
+}
+
+.pbi-finding-prefix {
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.pbi-finding-text {
+  font-weight: 600;
+  color: #F9FAFB;
+}
+
+/* ==========================================================================
+   資料替換 Modal & 載入狀態
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+
+.modal-content {
+  background: #FFFFFF;
+  border-radius: 6px;
+  max-width: 560px;
+  width: 100%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #E5E7EB;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #6B7280;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-box {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  padding: 12px 14px;
+  border-radius: 4px;
+}
+
+.info-box-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1F2937;
+  margin-bottom: 6px;
+}
+
+.path-code {
+  display: block;
+  background: #111827;
+  color: #38BDF8;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.info-desc {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.specs-box h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1F2937;
+  margin-bottom: 6px;
+}
+
+.field-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.field-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.field-tag.required {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.dropzone {
+  border: 2px dashed #D1D5DB;
+  border-radius: 6px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: #FAFAFA;
+}
+
+.dropzone:hover {
+  border-color: #3B82F6;
+  background: #EFF6FF;
+}
+
+.dropzone-label {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropzone-icon {
+  color: #3B82F6;
+}
+
+.dropzone-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.dropzone-hint {
+  font-size: 11.5px;
+  color: #9CA3AF;
+}
+
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid #E5E7EB;
+  background: #F9FAFB;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-secondary {
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  color: #374151;
+}
+
+.btn-primary {
+  background: #111827;
+  color: #FFFFFF;
+}
+
+.loading-container {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  color: #3B82F6;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--pbi-text-sub);
+  background: transparent;
+}
+
+/* ==========================================================================
+   RWD 響應式調整
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .pbi-kpi-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pbi-header {
+    padding: 16px;
+  }
+
+  .dashboard-main {
+    padding: 0 16px 20px 16px;
+  }
+
+  .pbi-kpi-container {
+    grid-template-columns: 1fr;
+  }
+
+  .pbi-select-box {
+    width: 100%;
+  }
+}

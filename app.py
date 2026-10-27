@@ -12,7 +12,7 @@ from functools import wraps
 
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, flash, session, g, jsonify
+    url_for, flash, session, g, jsonify, send_from_directory
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -695,6 +695,28 @@ def api_northwind_employee_detail(emp_id):
         return jsonify({'success': True, 'data': emp_data})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+#  上市公司高成長分析 Web Dashboard 靜態路由 (公開免登入)
+# ═══════════════════════════════════════════════════════════════
+
+STOCK_DIST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stock-growth-dashboard', 'dist')
+
+@app.route('/stock')
+@app.route('/stock/')
+@app.route('/stock/<path:filename>')
+def serve_stock_dashboard(filename='index.html'):
+    """提供上市公司高成長分析 Web Dashboard 頁面與靜態資源"""
+    if not filename or filename == '':
+        filename = 'index.html'
+    return send_from_directory(STOCK_DIST_DIR, filename)
+
+@app.route('/data/stock_data.csv')
+def serve_stock_data_csv():
+    """提供正式股票研究資料 CSV 檔案下載"""
+    csv_dir = os.path.join(STOCK_DIST_DIR, 'data')
+    return send_from_directory(csv_dir, 'stock_data.csv')
 
 
 # ═══════════════════════════════════════════════════════════════
